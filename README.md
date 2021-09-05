@@ -15,3 +15,5 @@ mutagen,
 random,
 pygame,
 io
+
+command: pip install <PACKAGE_NAME>
