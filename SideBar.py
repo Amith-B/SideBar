@@ -3,21 +3,21 @@ import os,sys
 import time
 from PIL import Image,ImageTk
 import threading
-from tkinter.ttk import Progressbar, Style
+from tkinter.ttk import Progressbar, Style, Scale
 from tkcolorpicker import askcolor
 from tkinter import filedialog
 import psutil as ps
-
+from tkinter.scrolledtext import ScrolledText
 import tkinter as tk
+import tkinter.ttk as ttk
 from mutagen import File
 import mutagen
+from mutagen import mp3
 import random
 import pygame
+import io
 
 
-
-netinterface=None
-interbool=False
 right=True
 app=None
 alpha=.9
@@ -30,7 +30,7 @@ shuffle=False
 song='Select Song'+' '*37
 prsntname=song[:42]
 s=None
-
+mute=False
 dire=None
 loc=None
 musiclist=None
@@ -62,34 +62,18 @@ shuffle=False
 prelist=list()
 live=True
 dircontent=None
-
+prevol=1.0
 '''----------------------------------------netspeed below--------------------------------'''
 speedUp=None
 speedDown=None
 interface=[itf for itf in list(dict.keys(ps.net_if_stats())) if(ps.net_if_stats()[itf].isup)][0]
 interface_list_at_startup=[itf for itf in list(dict.keys(ps.net_if_stats())) if(ps.net_if_stats()[itf].isup)]
-buttonSelectInterface=None
 xpos,ypos=0,0
+cntnt=''
+oldcnt=''
 
 if(len(interface)==0):
     os._exit(0)
-
-
-try:
-    startupfile=winshell.startup()+sys.argv[0][sys.argv[0].rfind("\\"):]
-    if(os.path.exists(startupfile)):
-        if(startupfile!=sys.argv[0]):
-            currentfile='\"'+sys.argv[0]+'\"'
-            destination='\"'+startupfile+'\"'
-            os.system('copy '+currentfile+' '+destination)
-        else:
-            pass
-    else:
-        currentfile='\"'+sys.argv[0]+'\"'
-        destination='\"'+startupfile+'\"'
-        os.system('copy '+currentfile+' '+destination)
-except:
-    pass
 
 
 if(os.path.exists('C:\\ProgramData\\SideBar\\netinterfacedata.log')):
@@ -130,6 +114,21 @@ try:
                 right=True
             else:
                 right=False
+except:
+    pass
+try:
+    if(os.path.exists('C:\\ProgramData\\SideBar\\notes.txt')):
+        with open('C:\\ProgramData\\SideBar\\notes.txt','r') as f:
+            cntnt=f.read()
+except:
+    pass
+try:
+    if(os.path.exists('C:\\ProgramData\\SideBar\\mute.txt')):
+        with open('C:\\ProgramData\\SideBar\\mute.txt','r') as f:
+            if(str(f.readline()).strip()=='true'):
+                mute=True
+            else:
+                mute=False
 except:
     pass
 
@@ -174,48 +173,48 @@ def start_leaveeffect(event):
     t = threading.Thread(target=on_leave, args=())
     t.daemon = True
     t.start()
+    
 def choosecolor():
-    global bgr,iconUp,iconDown,speedUp,speedDown,iconTotal,totalUsage,playlabel,prevbut,playbut,nextbut,shufbut,musiclist,searchbut,backbut,locbut,time_elapsed,total_time,songlabel
-    bgr=askcolor(bgr, app)[1]
-    fr.configure(background=bgr)
-    iconUp.configure(background=bgr)
-    iconDown.configure(background=bgr)
-    speedUp.configure(background=bgr)
-    speedDown.configure(background=bgr)
-    iconTotal.configure(background=bgr)
-    totalUsage.configure(background=bgr)
-    playlabel.configure(background=bgr)
-    prevbut.configure(background=bgr)
-    playbut.configure(background=bgr)
-    nextbut.configure(background=bgr)
-    vol.configure(background=bgr)
-    timeslider.configure(background=bgr)
-    if(shuffle):
-        shufbut.configure(background='grey')
-    else:
-        shufbut.configure(background=bgr)
-    musiclist.configure(background=bgr)
-    searchbut.configure(background=bgr)
-    backbut.configure(background=bgr)
-    locbut.configure(background=bgr)
-    time_elapsed.configure(background=bgr)
-    total_time.configure(background=bgr)
-    songlabel.configure(background=bgr)
-    refreshbut.configure(background=bgr)
-    if(os.path.exists('C:\\ProgramData\\SideBar')):
-        with open('C:\\ProgramData\\SideBar\\sidebardata.log','w+') as f:
-            f.write(bgr)
-    else:
-        os.mkdir('C:\\ProgramData\\SideBar')
-        with open('C:\\ProgramData\\SideBar\\sidebardata.log','w+') as f:
-            f.write(bgr)
+    global bgr,iconUp,iconDown,speedUp,speedDown,iconTotal,totalUsage,playlabel,prevbut,playbut,nextbut,shufbut,musiclist,backbut,locbut,time_elapsed,total_time,songlabel
+    value=askcolor(bgr, app)[1]
+    if(not (value is None)):
+        bgr=value
+        for w in widgetlist:
+            w.configure(background=bgr)
+        stylescale.configure('TScale',background=bgr)
+        if(os.path.exists('C:\\ProgramData\\SideBar')):
+            with open('C:\\ProgramData\\SideBar\\sidebardata.log','w+') as f:
+                f.write(bgr)
+        else:
+            os.mkdir('C:\\ProgramData\\SideBar')
+            with open('C:\\ProgramData\\SideBar\\sidebardata.log','w+') as f:
+                f.write(bgr)
 
 def bar():
-    global speedUp,speedDown,run,interface,interface_list_at_startup,buttonSelectInterface,s
+    global app,combo,speedUp,speedDown,run,oldcnt,interface,interface_list_at_startup,s,note,autosavelabel
     up=0
     down=0
+    notetime=0
     try:
         while(run):
+            time.sleep(1)
+            notetime+=1
+            autosavelabel.configure(text='Auto Save in: '+str(31-notetime)+'Sec')
+            if(notetime>30):
+                notetime=0
+                app.wm_attributes('-topmost', 1)
+                try:
+                    cntnt=note.get("1.0", 'end-1c')
+                    if(not (cntnt=='')):
+                        if(not oldcnt==cntnt):
+                            with open('C:\\ProgramData\\SideBar\\notes.txt','w+') as f:
+                                f.write(cntnt)
+                                autosavelabel.configure(text='Saved!')
+                                oldcnt=cntnt
+                        else:
+                            autosavelabel.configure(text='No Changes(not saved)!')
+                except:
+                    pass
             try:
                 bp=ps.sensors_battery().percent
                 progress['value'] = bp
@@ -245,9 +244,8 @@ def bar():
                         interface_list_new=[itf for itf in list(dict.keys(ps.net_if_stats())) if(ps.net_if_stats()[itf].isup)]
                         previnter=interface
                         interface=list(set(interface_list_new).difference(interface_list_at_startup))[0] if(len(list(set(interface_list_new).difference(interface_list_at_startup)))>0) else interface
-                            
                         if(previnter!=interface):
-                            buttonSelectInterface.config(text=interface[0])
+                            combo.set(interface)
                             interface_list_at_startup=[itf for itf in list(dict.keys(ps.net_if_stats())) if(ps.net_if_stats()[itf].isup)]
                             if(os.path.exists('C:\\ProgramData\\SideBar')):
                                 with open('C:\\ProgramData\\SideBar\\netinterfacedata.log','w+') as f:
@@ -261,9 +259,8 @@ def bar():
                     interface_list_new=[itf for itf in list(dict.keys(ps.net_if_stats())) if(ps.net_if_stats()[itf].isup)]
                     previnter=interface
                     interface=list(set(interface_list_new).difference(interface_list_at_startup))[0] if(len(list(set(interface_list_new).difference(interface_list_at_startup)))>0) else interface
-                        
                     if(previnter!=interface):
-                        buttonSelectInterface.config(text=interface[0])
+                        combo.set(interface)
                         interface_list_at_startup=[itf for itf in list(dict.keys(ps.net_if_stats())) if(ps.net_if_stats()[itf].isup)]
                             
                         if(os.path.exists('C:\\ProgramData\\SideBar')):
@@ -303,7 +300,6 @@ def bar():
                 down=recv
             except:
                 pass
-            time.sleep(1)
     except:
         bp=100
         progress['value'] = bp
@@ -344,57 +340,17 @@ def resource_path(relative_path):
     base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
     return os.path.join(base_path, relative_path)
 
-
-
-def getnetinterface():
-    global buttonSelectInterface,interface,bgr,interface_list_at_startup,hs,ws,netinterface,interbool
-    
-    w=int(ws*(175/dw))
-    h=int(hs*(30/dh))
-    x,y=xhover,int(hs*(350/dh))
-    netinterface = tk.Tk()
-    interbool=True
-    netinterface.title("Select Network Interface")
-    netinterface.geometry('%dx%d+%d+%d' % (w, h, x, y))
-    netinterface.wm_attributes('-alpha',alpha)
-    netinterface.wm_attributes('-topmost', 1)
-
-    var = tk.StringVar(netinterface)
-    var.set("Select Network Interface")
-
-    def grab_and_assign(event):
-       global buttonSelectInterface,interface,bgr,interface_list_at_startup
-       chosen_option = var.get()
-       interface=chosen_option
-       if(os.path.exists('C:\\ProgramData\\SideBar')):
-           with open('C:\\ProgramData\\SideBar\\netinterfacedata.log','w+') as f:
-               f.write(interface)
-       else:
-           os.mkdir('C:\\ProgramData\\SideBar')
-           with open('C:\\ProgramData\\SideBar\\netinterfacedata.log','w+') as f:
-               f.write(interface)
-       buttonSelectInterface.config(text=interface)
-       interface_list_at_startup=[itf for itf in list(dict.keys(ps.net_if_stats())) if(ps.net_if_stats()[itf].isup)]
-       netinterface.destroy()
-       interbool=False
-    lst=[itf for itf in list(dict.keys(ps.net_if_stats())) if(ps.net_if_stats()[itf].isup)]
-    drop_menu = tk.OptionMenu(netinterface, var,*lst, command=grab_and_assign)
-    drop_menu.config(bg=bgr,fg='white')
-    drop_menu.grid(row=0, column=0)
-
-    netinterface.resizable(0, 0)
-    netinterface.overrideredirect(1)
-    netinterface.configure(background=bgr)
-    
-    netinterface.mainloop()
-def cancel(event):
-    global netinterface,interbool
-    try:
-        if(interbool):
-            netinterface.destroy()
-            interbool=False
-    except:
-        pass
+def assigninterface(event):
+    global interface_list_at_startup,interface
+    interface=event.widget.get()
+    if(os.path.exists('C:\\ProgramData\\SideBar')):
+        with open('C:\\ProgramData\\SideBar\\netinterfacedata.log','w+') as f:
+            f.write(interface)
+    else:
+        os.mkdir('C:\\ProgramData\\SideBar')
+        with open('C:\\ProgramData\\SideBar\\netinterfacedata.log','w+') as f:
+            f.write(interface)
+    interface_list_at_startup=[itf for itf in list(dict.keys(ps.net_if_stats())) if(ps.net_if_stats()[itf].isup)]
 
 '''---------------------------------netspeed code above--------------------------------'''
 
@@ -418,7 +374,8 @@ def wlkfunc(dire):
     global c,musiclist,d
     d.clear()
     c=0
-    musiclist.delete(0,tk.END)
+    for el in musiclist.get_children():
+        musiclist.delete(el)
     thread3=threading.Thread(target=walk,args=(dire,'.mp3'))
     thread3.start()
 
@@ -433,7 +390,7 @@ def walk(dirn,s):
                 if(s in str(p)):
                     try:
                         c+=1
-                        musiclist.insert(tk.END,i)
+                        musiclist.insert("",'end',text=str(c),value=(str(i),),tags = ('odd' if c%2==0 else 'even',))
                         d[i]=p
                     except:
                         pass
@@ -443,25 +400,31 @@ def walk(dirn,s):
                 except:
                         pass
         musiclist.bind("<Double-Button-1>",OnDouble)
+        musiclist.bind("<Return>",OnDouble)
+        '''musiclist.bind("<Down>",OnDown)
+        musiclist.bind("<Up>",OnUp)'''
     except Exception as e:
-        musiclist.insert(tk.END,str(e))
+        musiclist.insert("",'end',text="n/a",value=(sre(e)),tags = ('odd',))
 
 
 def OnDouble(event):
     global song,songnum,songinfo,totlength,pre,d
     pre=0
     widget = event.widget
-    songnum=widget.curselection()[0]
-    song = widget.get(songnum)
+    song=widget.item(widget.focus())['values'][0]
     collectsonginfoandplay(song)
-
+    
 def collectsonginfoandplay(sng):
-    global song,songnum,prelist,i,totlength
+    global song,songnum,prelist,i,totlength,musiclist
     song=sng
-    songnum = musiclist.get(0, "end").index(song)
+    for index,child in enumerate(musiclist.get_children()):
+        if(song==musiclist.item(child)["values"][0]):
+            songnum=index
+            break
     prelist.append(songnum)
-    musiclist.activate(songnum)
-    musiclist.see(songnum)
+    songid=musiclist.get_children()[songnum]
+    musiclist.selection_set(songid)
+    musiclist.see(songid)
     songinfo=mutagen.File(d[song])
     totlength=songinfo.info.length
     timeslider.configure(from_=0, to=int(totlength))
@@ -481,16 +444,22 @@ def playorpause():
 
 
 def play(song):
-    global playing,playbut,pauimg,thread,playlabel,t,artimg
-    pygame.init()
-    pygame.mixer.init()
-    clock = pygame.time.Clock()
-    pygame.mixer.music.load(song)
-    pygame.mixer.music.play()
-    albumart(song)
-    playlabel.config(image=artimg)
-    playing=True
-    playbut.config(image=pauimg)
+    global playing,playbut,pauimg,thread,playlabel,t,artimg,v
+    #pygame.init()
+    try:
+        pygame.mixer.quit()
+        mp = mp3.MP3(song)
+        pygame.mixer.init(frequency=mp.info.sample_rate)
+        clock = pygame.time.Clock()
+        pygame.mixer.music.set_volume(v)
+        pygame.mixer.music.load(song)
+        pygame.mixer.music.play()
+        albumart(song)
+        playlabel.config(image=artimg)
+        playing=True
+        playbut.config(image=pauimg)
+    except Exception as e:
+        pass
 
 
 def albumart(song):
@@ -521,7 +490,6 @@ def albumart(song):
             img.resize((int(ws*(150/dw)),int(ws*(150/dw)))).save('C:\\ProgramData\\SideBar\\art.png')
             artimg = tk.PhotoImage(file="C:\\ProgramData\\SideBar\\art.png")
 
-    
 
 def middleplay(event):
     global totlength,pre,song
@@ -534,16 +502,19 @@ def middleplay(event):
     pygame.mixer.music.set_pos(timepos)
 
 def middlevol(event):
-    v=float(((100-event.y)*1.0)/100)
-    vol.set(v*100)
+    posy=int((hs*140)/dh)-event.y
+    rng=int(int(posy*100)/int((hs*140)/dh))
+    v=float('%.1f'%(rng/100))
+    vol.set(rng)
     pygame.mixer.music.set_volume(v)
     with open('C:\\ProgramData\\SideBar\\vol.txt','w') as f:
         f.write('vol:'+str(v))
 
 def playtime():
     global tv,hr,minit,sec,pt,timeslider,pre,i,live
-    try:
-        while(live):
+    
+    while(live):
+        try:
             pt=pygame.mixer.music.get_pos()
             if(pt is -1):
                 timeslider.set(0)
@@ -552,7 +523,9 @@ def playtime():
                 hr=0
                 if(songnum is not None):
                     i=0
-                    nextsong()
+                    time.sleep(.5)
+                    if(pygame.mixer.music.get_pos() is -1):
+                        nextsong()
             else:
                 pt=str(pt)
                 pt=pt[:-3]
@@ -567,8 +540,9 @@ def playtime():
             pt='%02d:%02d:%02d'%(hr,minit,sec)
             tv.set(pt)
             time.sleep(1)
-    except:
-        pygame.mixer.music.stop()
+        except Exception as e:
+            time.sleep(.5)
+            pass
 
 def continu():
     global playing,playbut,pauimg
@@ -595,9 +569,12 @@ def nextsong():
         if(songnum in prelist):
             del(prelist[prelist.index(songnum)])
         prelist.append(songnum)
-    musiclist.activate(songnum)
-    musiclist.see(songnum)
-    song = musiclist.get(songnum)
+    '''musiclist.activate(songnum)
+    musiclist.see(songnum)'''
+    songid=musiclist.get_children()[songnum]
+    musiclist.selection_set(songid)
+    musiclist.see(songid)
+    song = musiclist.item(songid)['values'][0]
     songinfo=mutagen.File(d[song])
     totlength=songinfo.info.length
     timeslider.configure(from_=0, to=int(totlength))
@@ -625,9 +602,12 @@ def previoussong():
                 prelist=[songnum]
             else:
                 songnum=prelist[(len(prelist)-1)]
-    musiclist.activate(songnum)
-    musiclist.see(songnum)        
-    song = musiclist.get(songnum)
+    '''musiclist.activate(songnum)
+    musiclist.see(songnum) '''
+    songid=musiclist.get_children()[songnum]
+    musiclist.selection_set(songid)
+    musiclist.see(songid)
+    song = musiclist.item(songid)['values'][0]
     songinfo=mutagen.File(d[song])
     totlength=songinfo.info.length
     timeslider.configure(from_=0, to=int(totlength))
@@ -637,6 +617,30 @@ def previoussong():
     totv.set('%02d:%02d:%02d'%(tothr,totmin,totsec))
     i=0
     play(d[song])
+
+
+def muteorunmute():
+    global mute,prevol,v,audio,theme,colrlst
+    try:
+        if(mute):
+            v=prevol
+            pygame.mixer.music.set_volume(v)
+            vol.set(v*100)
+            mutebut.configure(image=soundimg)
+            mute=False
+            with open('C:\\ProgramData\\SideBar\\mute.txt','w') as f:
+                f.write('false')
+        else:
+            prevol=v
+            v=0.0
+            pygame.mixer.music.set_volume(v)
+            mutebut.configure(image=muteimg)
+            vol.set(v*100)
+            mute=True
+            with open('C:\\ProgramData\\SideBar\\mute.txt','w') as f:
+                f.write('true')
+    except:
+        pass
 
 def initMixer():
     BUFFER = 3072
@@ -649,12 +653,6 @@ def getmixerargs():
     freq, size, chan = pygame.mixer.get_init()
     return freq, size, chan
 
-def controlvol(event):
-    global v
-    v=(float(event)*1.0)/100.0
-    pygame.mixer.music.set_volume(v)
-    with open('C:\\ProgramData\\SideBar\\vol.txt','w') as f:
-        f.write('vol:'+str(v))
 
 def volscroll(event):
     global v,vol
@@ -665,20 +663,25 @@ def volscroll(event):
     
 def volincrease():
     global v,vol
-    v+=0.1
-    pygame.mixer.music.set_volume(v)
-    vol.set(v*100)
-    with open('C:\\ProgramData\\SideBar\\vol.txt','w') as f:
-        f.write('vol:'+str(v))
-    
+    v=float('%.1f'%(v))
+    if(not v>1.0):
+        v+=0.1
+        v=float('%.1f'%(v))
+        pygame.mixer.music.set_volume(v)
+        vol.set(v*100)
+        with open('C:\\ProgramData\\SideBar\\vol.txt','w') as f:
+            f.write('vol:'+str(v))
 
 def voldecrease():
     global v,vol
-    v-=0.1
-    pygame.mixer.music.set_volume(v)
-    vol.set(v*100)
-    with open('C:\\ProgramData\\SideBar\\vol.txt','w') as f:
-        f.write('vol:'+str(v))
+    v=float('%.1f'%(v))
+    if(not v<0.0):
+        v-=0.1
+        v=float('%.1f'%(v))
+        pygame.mixer.music.set_volume(v)
+        vol.set(v*100)
+        with open('C:\\ProgramData\\SideBar\\vol.txt','w') as f:
+            f.write('vol:'+str(v))
 
 def namedisp():
     global prsntname,song,i,live
@@ -697,25 +700,26 @@ def namedisp():
 
 
 def searchmusic():
-    global search,musiclist,c,d,backbut,r,loc,locbut,d,refreshbut
-    musiclist.delete(0,tk.END)
+    global search,musiclist,c,d,backbut,r,loc,locbut,d,refreshbut,nety
+    for el in musiclist.get_children():
+        musiclist.delete(el)
     searchkey=search.get().lower()
-    backbut.place(x=int(ws*(205/dw)),y=int(hs*(575/dh)))
-    locbut.place(x=int(ws*(235/dw)),y=int(hs*(575/dh)))
-    refreshbut.place(x=int(ws*(265/dw)),y=int(hs*(575/dh)))
+    backbut.place(x=int(ws*(205/dw)),y=nety+int(hs*(405/dh)))
+    locbut.place(x=int(ws*(235/dw)),y=nety+int(hs*(405/dh)))
+    refreshbut.place(x=int(ws*(265/dw)),y=nety+int(hs*(405/dh)))
     c=0
     for i in d:
         if(searchkey in i.lower()):
             c+=1
-            musiclist.insert(tk.END,i)
+            musiclist.insert("",'end',text=str(c),value=(str(i),),tags = ('odd' if c%2==0 else 'even',))
 
 def backlist():
-    global dircontent,locbut,d,refreshbut
+    global dircontent,locbut,d,refreshbut,nety
     if(os.path.isdir(dircontent)):
         wlkfunc(dircontent)
-        backbut.place(x=ws,y=int(hs*(575/dh)))
-        locbut.place(x=int(ws*(205/dw)),y=int(hs*(575/dh)))
-        refreshbut.place(x=int(ws*(235/dw)),y=int(hs*(575/dh)))
+        backbut.place(x=ws,y=nety+int(hs*(405/dh)))
+        locbut.place(x=int(ws*(205/dw)),y=nety+int(hs*(405/dh)))
+        refreshbut.place(x=int(ws*(235/dw)),y=nety+int(hs*(405/dh)))
         
 def refresh():
     global d
@@ -727,12 +731,12 @@ def shufflesong():
     global shuffle
     if(shuffle is False):
         shuffle=True
-        shufbut.configure(bg='grey')
+        shufbut.configure(image=shuffleimg)
         with open('C:\\ProgramData\\SideBar\\shuf.txt','w') as f:
             f.write('shuffle:1')
     else:
         shuffle=False
-        shufbut.configure(bg=bgr)
+        shufbut.configure(image=shuffleoffimg)
         with open('C:\\ProgramData\\SideBar\\shuf.txt','w') as f:
             f.write('shuffle:0')
 
@@ -760,6 +764,34 @@ if(os.path.exists('C:\\ProgramData\\SideBar\\shuf.txt')):
                 shuffle=False
 
 '''---------------------------------music player above---------------------------'''
+def showFrame1():
+    global fr,fr2
+    t = threading.Thread(target=moveright, args=())
+    t.daemon = True
+    t.start()
+    
+def showFrame2():
+    global fr,fr2
+    t = threading.Thread(target=moveleft, args=())
+    t.daemon = True
+    t.start()
+def moveright():
+    global fr,fr2
+    for i in range(0,int(ws),16):
+        fr.place(x=-int(ws)+i,y=int(hs*(25/dh)))
+        fr2.place(x=i,y=int(hs*(25/dh)))
+        time.sleep(.001)
+    fr.place(x=0,y=int(hs*(25/dh)))
+    fr2.place(x=int(ws),y=int(hs*(25/dh)))
+def moveleft():
+    global fr,fr2
+    for i in range(0,int(ws),16):
+        fr.place(x=-i,y=int(hs*(25/dh)))
+        fr2.place(x=int(ws)-i,y=int(hs*(25/dh)))
+        time.sleep(.001)
+    fr.place(x=-int(ws),y=int(hs*(25/dh)))
+    fr2.place(x=0,y=int(hs*(25/dh)))
+
 
 app=tk.Tk()
 
@@ -774,33 +806,69 @@ else:
     xleave=2-ws
 y = -1
 app.geometry('%dx%d+%d+%d' % (ws, hs, xleave, y))
+mainfr=tk.Frame(app,background='black',height = hs, width =ws)
+
+mainfr.pack()
+mainfr.bind("<Enter>",start_hovereffect )
+mainfr.bind("<Leave>",start_leaveeffect )
+
+if(bgr is ""):
+    bgr='#000000'
 try:
-    fr=tk.Frame(app,background=bgr,height = hs, width =ws)
+    fr=tk.Frame(mainfr,background=bgr,height = hs, width =ws)
 except:
     bgr='#000000'
-    fr=tk.Frame(app,background=bgr,height = hs, width =ws)
-fr.pack()
-fr.bind("<Enter>",start_hovereffect )
-fr.bind("<Leave>",start_leaveeffect )
+    fr=tk.Frame(mainfr,background=bgr,height = hs, width =ws)
+fr.place(x=0,y=int(hs*(25/dh)))
 
-buttonClose = tk.Button(fr,text='X' ,background='red',height = int(hs*(1/dh)), width =int(ws*(4/dw)),borderwidth=0,command =on_closing,font='Helvetica %d bold'%(int(ws*(12/dw))),state=tk.DISABLED)
+buttonClose = tk.Button(mainfr,text='X' ,background='red',height = int(hs*(1/dh)), width =int(ws*(5/dw)),borderwidth=0,command =on_closing,font='Helvetica %d bold'%(int(ws*(10/dw))),state=tk.DISABLED)
 #buttonClose.pack(side="right")
 buttonClose.place( x =2, y = 0)
 buttonClose.bind("<Enter>", lambda event: buttonClose.config(state=tk.NORMAL))
 buttonClose.bind("<Leave>", lambda event: buttonClose.config(state=tk.DISABLED))
 
 
-buttonColor = tk.Button(fr,text='Color' ,foreground='white',background='black',height = int(hs*(1/dh)), width =int(ws*(6/dw)),borderwidth=0,command =choosecolor,font='Helvetica %d bold'%(int(ws*(9/dw))))
+buttonColor = tk.Button(mainfr,text='Color' ,foreground='white',background='black',height = int(hs*(1/dh)), width =int(ws*(6/dw)),borderwidth=0,command =choosecolor,font='Helvetica %d bold'%(int(ws*(9/dw))))
 #buttonClose.pack(side="right")
 buttonColor.place( x =int(ws*(50/dw)), y = 0)
 buttonColor.bind("<Enter>", lambda event: buttonColor.config(background='white',foreground='black'))
 buttonColor.bind("<Leave>", lambda event: buttonColor.config(background='black',foreground='white'))
 
-buttonPosition = tk.Button(fr ,foreground='white',background='black',height = int(hs*(1/dh)), width =int(ws*(13/dw)),borderwidth=0,command =position,font='Helvetica %d bold'%(int(ws*(9/dw))))
+buttonPosition = tk.Button(mainfr ,foreground='white',background='black',height = int(hs*(1/dh)), width =int(ws*(13/dw)),borderwidth=0,command =position,font='Helvetica %d bold'%(int(ws*(9/dw))))
 #buttonClose.pack(side="right")
 buttonPosition.place( x =int(ws*(100/dw)), y = 0)
 buttonPosition.bind("<Enter>", lambda event: buttonPosition.config(background='white',foreground='black'))
 buttonPosition.bind("<Leave>", lambda event: buttonPosition.config(background='black',foreground='white'))
+
+
+tab1=tk.Button(fr,text='Tab1',foreground='white',background='red',height = int(hs*(1/dh)), width =int(ws*(6/dw)),borderwidth=0,font='Helvetica %d bold'%(int(ws*(9/dw))))
+tab1.place(x =int(ws*(50/dw)), y = 2)
+tab2=tk.Button(fr,text='Tab2',command=showFrame2,foreground='white',background='black',height = int(hs*(1/dh)), width =int(ws*(6/dw)),borderwidth=0,font='Helvetica %d bold'%(int(ws*(9/dw))))
+tab2.place(x =int(ws*(100/dw)), y = 2)
+fr2=tk.Frame(mainfr,width=ws,height=hs)
+fr2.place(x=ws,y=int(hs*(25/dh)))
+fr2.configure(background=bgr)
+tab1=tk.Button(fr2,text='Tab1',command=showFrame1,foreground='white',background='black',height = int(hs*(1/dh)), width =int(ws*(6/dw)),borderwidth=0,font='Helvetica %d bold'%(int(ws*(9/dw))))
+tab1.place(x =int(ws*(50/dw)), y = 2)
+tab2=tk.Button(fr2,text='Tab2',foreground='white',background='red',height = int(hs*(1/dh)), width =int(ws*(6/dw)),borderwidth=0,font='Helvetica %d bold'%(int(ws*(9/dw))))
+tab2.place(x =int(ws*(100/dw)), y = 2)
+
+'''note=ScrolledText(fr2,background='yellow',width=int((ws*30)/dw),height=int((hs*25)/dh),font='Helvetica %d'%(int(ws*(12/dw))))
+note.place(x=0,y=int(hs*(40/dh)))
+note.insert(tk.INSERT, cntnt)'''
+
+autosavelabel = tk.Label(fr2 ,text = "Auto Save in: 0Sec",background='black',foreground='white',font='Helvetica %d bold'%(int(ws*(12/dw))))
+autosavelabel.place(x=0,y=int(hs*(40/dh)))
+
+notefr=tk.Frame(fr2,background=bgr)
+note=ScrolledText(notefr,background='yellow',font='serif %d bold'%(int(ws*(10/dw))))
+note.pack()
+notefr.pack()
+notefr.place(x=0,y=int(hs*(80/dh)),width=ws,height=hs-int(hs*(80/dh)))
+note.insert(tk.INSERT, cntnt)
+
+
+
 
 if(right):
     buttonPosition.configure(text='Left Window')
@@ -812,7 +880,6 @@ app.wm_attributes('-topmost', 1)
 app.resizable(0, 0)
 app.overrideredirect(1)
 app.protocol("WM_DELETE_WINDOW", on_closing)
-app.bind('<Button-1>',cancel)
 
 
 s = Style(fr)
@@ -824,16 +891,13 @@ s.layout("LabeledProgressbar",
                           {"sticky": ""})],
            'sticky': 'nswe'})])
 
-l1 = tk.Label(fr, borderwidth=6, relief="ridge")
-l1.place(x =int(ws*(24/dw)), y = int(hs*(60/dh)))
+l1 = tk.Label(fr, borderwidth=3, relief="ridge")
+l1.place(x =int(ws*(24/dw)), y = int(hs*(40/dh)))
 # Progress bar widget 
 progress = Progressbar(l1, orient = 'horizontal',length = int(ws*(220/dw)), mode = 'determinate',style="LabeledProgressbar")
 progress.pack()
 s.configure("LabeledProgressbar", thickness=int(hs*(70/dh)),text=" 0%",foreground='white',background='green',font='Helvetica %d bold'%(int(ws*(38/dw))),troughcolor='black')
 
-t = threading.Thread(target=bar, args=())
-t.daemon = True
-t.start()
 
 '''---------------------------Netspeed--------------------------------'''
 #iconsize=30
@@ -862,7 +926,7 @@ mpTotal = mpTotal.resize((iconsize,iconsize), Image.ANTIALIAS)
 mpTotal=ImageTk.PhotoImage(mpTotal)
 
 netx=int(ws*(30/dw))
-nety=int(hs*(160/dh))
+nety=int(hs*(140/dh))
 iconUp = tk.Label(fr ,text = "Up:",background=bgr,foreground='white',font='Helvetica %d bold'%(int(ws*(7/dw))),image=mpUp)
 iconUp.place(x=netx,y=nety)
 iconDown = tk.Label(fr ,text = "Down:",background=bgr,foreground='white',font='Helvetica %d bold'%(int(ws*(7/dw))),image=mpDown)
@@ -876,18 +940,18 @@ iconTotal = tk.Label(fr ,text = "Total:",background=bgr,foreground='white',font=
 iconTotal.place(x=netx,y=nety+int(hs*(100/dh)))
 totalUsage= tk.Label(fr ,text = "0",background=bgr,foreground='white',font='Helvetica %d bold'%(int(ws*(17/dw))))
 totalUsage.place(x=netx+int(ws*(40/dw)),y=nety+int(hs*(100/dh)))
-buttonSelectInterface = tk.Button(fr, text=interface,borderwidth=0,background='black',foreground='white',command =getnetinterface,font='Helvetica %d bold'%(int(ws*(14/dw))))
-buttonSelectInterface.place(x=netx, y=nety+int(hs*(150/dh)))
-buttonSelectInterface.bind("<Enter>", lambda event: buttonSelectInterface.config(background='grey'))
-buttonSelectInterface.bind("<Leave>", lambda event: buttonSelectInterface.config(background='black'))
+interface_info = tk.Label(fr ,text = "Interface:",background=bgr,foreground='white',font='Helvetica %d bold'%(int(ws*(12/dw))))
+interface_info.place(x=0,y=nety+int(hs*(140/dh)))
 
+
+combo=ttk.Combobox(fr,values=[""],height=15,state="readonly")
+combo.bind('<Button-1>',lambda event:combo.configure(values=[itf for itf in list(dict.keys(ps.net_if_stats())) if(ps.net_if_stats()[itf].isup)]))
+combo.bind("<<ComboboxSelected>>", assigninterface)
+combo.set(interface)
+combo.place(x=netx+50, y=nety+int(hs*(140/dh)))
 
 '''-----------------------------------music player--------------------------------'''
 
-
-'''artpath= resource_path("art.png")
-photo = tk.PhotoImage(file = artpath)
-artimg = photo.subsample(4,4)'''
 
 img=Image.open(resource_path("art.png"))
 img.resize((int(ws*(150/dw)),int(ws*(150/dw)))).save('C:\\ProgramData\\SideBar\\art.png')
@@ -924,6 +988,24 @@ nextimg= Image.open(nextpath)
 nextimg = nextimg.resize((iconsize,iconsize), Image.ANTIALIAS)
 nextimg=ImageTk.PhotoImage(nextimg)
 
+mutepath= resource_path("mute.png")
+iconsize=int(ws*(38/dw))
+muteimg= Image.open(mutepath)
+muteimg = muteimg.resize((iconsize,iconsize), Image.ANTIALIAS)
+muteimg=ImageTk.PhotoImage(muteimg)
+
+shuffleoffpath= resource_path("shuffleoff.png")
+iconsize=int(ws*(34/dw))
+shuffleoffimg= Image.open(shuffleoffpath)
+shuffleoffimg = shuffleoffimg.resize((iconsize,iconsize), Image.ANTIALIAS)
+shuffleoffimg=ImageTk.PhotoImage(shuffleoffimg)
+
+soundpath= resource_path("sound.png")
+iconsize=int(ws*(38/dw))
+soundimg= Image.open(soundpath)
+soundimg = soundimg.resize((iconsize,iconsize), Image.ANTIALIAS)
+soundimg=ImageTk.PhotoImage(soundimg)
+
 shufflepath= resource_path("shuffle.png")
 '''photo = tk.PhotoImage(file = shufflepath)
 shuffleimg = photo.subsample(8,8)'''
@@ -956,89 +1038,159 @@ refreshimg=ImageTk.PhotoImage(refreshimg)
 
 
 playlabel=tk.Label(fr,bg=bgr,image=artimg)
-playlabel.place(x=0,y=int(hs*(350/dh)))
+playlabel.place(x=0,y=nety+int(hs*(180/dh)))
 
 prevbut = tk.Button(fr,command=previoussong,bg=bgr,borderwidth=0,image=previousimg)
-prevbut.place(x=int(ws*(155/dw)),y=int(hs*(350/dh)))
+prevbut.place(x=int(ws*(155/dw)),y=nety+int(hs*(180/dh)))
 
 playbut = tk.Button(fr,command=playorpause,bg=bgr,borderwidth=0,image=playimg)
-playbut.place(x=int(ws*(153/dw)),y=int(hs*(399/dh)))
+playbut.place(x=int(ws*(153/dw)),y=nety+int(hs*(229/dh)))
 
 nextbut = tk.Button(fr,command=nextsong,bg=bgr,borderwidth=0,image=nextimg)
-nextbut.place(x=int(ws*(155/dw)),y=int(hs*(450/dh)))
+nextbut.place(x=int(ws*(155/dw)),y=nety+int(hs*(280/dh)))
 
-shufbut = tk.Button(fr,command=shufflesong,bg=bgr,borderwidth=0,image=shuffleimg)
-shufbut.place(x=int(ws*(210/dw)),y=int(hs*(350/dh)))
+mutebut = tk.Button(fr,command=muteorunmute,bg=bgr,borderwidth=0,image=soundimg)
+mutebut.place(x=int(ws*(210/dw)),y=nety+int(hs*(280/dh)))
+
+
+
+shufbut = tk.Button(fr,command=shufflesong,bg=bgr,borderwidth=0,image=shuffleoffimg)
+shufbut.place(x=int(ws*(210/dw)),y=nety+int(hs*(180/dh)))
 
 if(shuffle):
-    shufbut.configure(bg='grey')
+    shufbut.configure(image=shuffleimg)
 
-sb= tk.Scrollbar()
-sb.pack( side = tk.RIGHT, fill=tk.Y )
+'''sb= tk.Scrollbar()
+sb.pack( side = tk.RIGHT, fill=tk.Y )'''
+
+'''--------------------------------------------------------------------'''
+ns=6
+st = ttk.Style()
+st.configure("mystyle.Treeview",background='black',rowheight=int(hs*(((dh-610)/ns)/dh)),font=('Calibri', 12), highlightthickness=0, bd=0) # Modify the font of the body
+#style.configure("mystyle.Treeview.Heading", font=('Calibri', 13,'bold')) # Modify the font of the headings
+st.layout("mystyle.Treeview", [('mystyle.Treeview.treearea', {'sticky': 'nswe'})]) # Remove the borders
 
 
-musiclist = tk.Listbox(fr,yscrollcommand = sb.set,font=("bold", 10),background=bgr,foreground='white',selectmode=tk.SINGLE,width=int(ws)-int(ws*(264/dw)),height=int(hs*(12/dh)))
-musiclist.place(x=0,y=int(hs*(606/dh)))
-sb.config( command = musiclist.yview )
+musiclistframe = tk.Frame(fr)#, width=120, height=10,bd=0)
+ 
+musiclistframe.place(x=-20,y=int(hs*(580/dh)))
 
-search=tk.Entry(fr,width=25,bg='white')
-search.place(x=0,y=int(hs*(582/dh)))
+musiclist=ttk.Treeview(musiclistframe,height=ns,style="mystyle.Treeview", selectmode='browse',show="tree")
+musiclist.pack(side='left')
+
+sb = ttk.Scrollbar(musiclistframe, orient="vertical", command=musiclist.yview)
+sb.pack(side='right', fill='y')#place(x=30+200+2, y=0, height=200)
+
+musiclist.configure(yscrollcommand=sb.set)
+
+
+
+musiclist["columns"]=("one")
+musiclist.column("#0", width=int(ws*(50/dw)), minwidth=int(ws*(50/dw)), stretch=tk.NO)
+musiclist.column("one", width=int(ws*(260/dw)), minwidth=50, stretch=tk.YES)
+
+musiclist.tag_configure('odd', background='black',foreground='white')
+musiclist.tag_configure('even', background='#10181d',foreground='white')
+
+search=tk.Entry(fr,width=int(ws*(25/dw)),bg='white')
+search.place(x=0,y=nety+int(hs*(412/dh)))
 search.insert(0,'Search Music')
 search.bind("<Button-1>", lambda event: clear_entry(event, search))
 
-searchbut=tk.Button(fr,command=searchmusic,borderwidth=0,width=6,bg='black',fg='white',text='Search')
-searchbut.place(x=int(ws*(155/dw)),y=int(hs*(580/dh)))
+searchbut=tk.Button(fr,command=searchmusic,borderwidth=0,width=int(ws*(6/dw)),bg='black',fg='white',text='Search')
+searchbut.place(x=int(ws*(155/dw)),y=nety+int(hs*(410/dh)))
 
 backbut=tk.Button(fr,command=backlist,bg=bgr,borderwidth=0,image=backimg)
-backbut.place(x=ws,y=int(hs*(575/dh)))
+backbut.place(x=ws,y=nety+int(hs*(405/dh)))
 
 locbut=tk.Button(fr,command=filechooser,borderwidth=0,bg=bgr,image=filechooserimg)
-locbut.place(x=int(ws*(205/dw)),y=int(hs*(575/dh)))
+locbut.place(x=int(ws*(205/dw)),y=nety+int(hs*(405/dh)))
 
 refreshbut=tk.Button(fr,command=refresh,borderwidth=0,bg=bgr,image=refreshimg)
-refreshbut.place(x=int(ws*(235/dw)),y=int(hs*(575/dh)))
+refreshbut.place(x=int(ws*(235/dw)),y=nety+int(hs*(405/dh)))
 
-vol =tk.Scale(fr,borderwidth=0,command=controlvol,showvalue='no',highlightthickness=0,length=140,width=18,bg=bgr,from_ = 100,to = 0,orient = tk.VERTICAL ,resolution = 10)
+stylescale = Style(fr)
+#vol =tk.Scale(fr,borderwidth=0,command=controlvol,showvalue='no',highlightthickness=0,length=140,width=18,bg=bgr,from_ = 100,to = 0,orient = tk.VERTICAL ,resolution = 10)
+vol=Scale(fr, orient = 'vertical',length=int((hs*140)/dh),from_=100,to=0,style="TScale")
 vol.bind('<MouseWheel>',volscroll)
 vol.bind('<Button-1>',middlevol)
-vol.place(x=int(ws*(260/dw)),y=int(hs*(355/dh)))
+vol.place(x=int(ws*(260/dw)),y=nety+int(hs*(185/dh)))
 vol.set(100)
 
-timeslider =tk.Scale(fr,borderwidth=0, bg=bgr,showvalue='no',width=18,highlightthickness=0,length=int(ws*(300/dw)),from_=0, to=100, resolution=1, orient=tk.HORIZONTAL)
+
+#timeslider =tk.Scale(fr,borderwidth=0, bg=bgr,showvalue='no',width=18,highlightthickness=0,length=int(ws*(300/dw)),from_=0, to=100, resolution=1, orient=tk.HORIZONTAL)
+timeslider=Scale(fr, orient = 'horizontal',length=ws,from_=0,to=100,style="TScale")
 timeslider.bind('<Button-1>',middleplay)
-timeslider.place(x=0,y=int(hs*(530/dh)))
+timeslider.place(x=0,y=nety+int(hs*(360/dh)))
+
+stylescale.configure("TScale",background=bgr)
 
 tv = tk.StringVar()
 time_elapsed = tk.Label(fr,bg=bgr,fg='white',textvariable=tv)
-time_elapsed.place(x=0,y=int(hs*(550/dh)))
+time_elapsed.place(x=0,y=nety+int(hs*(385/dh)))
 tv.set('00:00:00')
 
 totv = tk.StringVar()
 total_time = tk.Label(fr,bg=bgr,fg='white',textvariable=totv)
-total_time.place(x=int(ws-56),y=int(hs*(550/dh)))
+total_time.place(x=int(ws-56),y=nety+int(hs*(385/dh)))
 totv.set('00:00:00')
 
 
 playv = tk.StringVar()
 songlabel= tk.Label(fr,fg='white',bg=bgr,font=("bold", 10),textvariable=playv)
-songlabel.place(x=0,y=int(hs*(505/dh)))
+songlabel.place(x=0,y=nety+int(hs*(335/dh)))
 playv.set(prsntname)
 
+widgetlist=[fr,
+            fr2,
+            iconUp,
+            iconDown,
+            speedUp,
+            speedDown,
+            iconTotal,
+            totalUsage,
+            playlabel,
+            prevbut,
+            playbut,
+            nextbut,
+            interface_info,
+            backbut,
+            locbut,
+            time_elapsed,
+            total_time,
+            songlabel,
+            refreshbut,
+            mutebut,
+            shufbut,
+            notefr]
 
 if(dircontent!=None and os.path.isdir(dircontent)):
     autowlk(dircontent)
    
-initMixer()
+initMixer()  
 try:
     if(volinfo.startswith('vol:')):
         v=float(volinfo[4:])
         pygame.mixer.music.set_volume(v)
+        prevol=v
         vol.set(v*100)
 except:
     v=1.0
     pygame.mixer.music.set_volume(v)
     vol.set(v*100)
 
+
+if(mute):
+    mutebut.configure(image=muteimg)
+    vol.set(0)
+    pygame.mixer.music.set_volume(0)
+
+try:
+    t = threading.Thread(target=bar, args=())
+    t.daemon = True
+    t.start()
+except:
+    pass
 try:
     thread1=threading.Thread(target=playtime,args=())
     thread1.start()
